@@ -234,23 +234,35 @@ lets the user queue overnight.
 
 ## 11. Index manifest
 
+One manifest per library, one matrix per video:
+
 ```json
 {
   "format": 1,
-  "video_id": "01J...",
-  "source_sha256": "…",
-  "tier": "full",
-  "views": {
-    "text":  {"model": "google/embeddinggemma-2", "rev": "…", "dim": 768, "normalised": true},
-    "frame": {"model": "google/embeddinggemma-2", "rev": "…", "dim": 768, "normalised": true}
-  },
-  "segment_count": 214,
-  "created_at": "2026-11-25T09:00:00Z"
+  "view": "text",
+  "model": "BAAI/bge-small-en-v1.5",
+  "dim": 384,
+  "normalised": true,
+  "created_at": "2026-11-25T09:00:00+00:00",
+  "videos": {
+    "01J...": {
+      "sha256": "…",
+      "count": 214,
+      "segment_ids": ["01J...", "01J..."],
+      "file": "01J.../text.npy"
+    }
+  }
 }
 ```
 
-Any query checks the manifest first. A mismatch between the configured embedder
-and the manifest is an error with a one-command fix (`reelreader index --rebuild`).
+- `segment_ids` is the row order of the matrix. A query maps a row back to a
+  segment through this list, so a rebuilt segment set is detected rather than
+  silently misaligned.
+- Model, dimension, and normalisation are library-wide. Mixing two embedders in
+  one index is not allowed.
+- Any query checks the manifest first. A model or dimension change is an error
+  with a one-command fix (`reelreader index --rebuild`), which clears and
+  rebuilds the whole index.
 
 ## 12. Retrieval and answering
 
@@ -261,23 +273,24 @@ and the manifest is an error with a one-command fix (`reelreader index --rebuild
 4. Assemble context: segment text, timestamps, and — for visual/full — the
    keyframe and a short clip reference.
 5. Call the chat model with a strict contract (§12.1).
-6. Parse citations of the form `[#<segment_id> @ mm:ss]`; reject or repair
-   citations that do not map to a retrieved segment.
-7. Return answer, citations, and the retrieval trace.
+6. The model sees numbered segments (`[1]` … `[n]`) and cites by number. The
+   server maps each number back to a segment id and drops any number that does
+   not exist. The interface renders the citation as `[mm:ss]`.
+7. Return answer, citations, and the retrieval trace. The user never sees an
+   internal segment id.
 
 ### 12.1 Grounding contract
 
 The system prompt says, in effect:
 
 - Answer only from the provided segments.
-- Cite every factual sentence with a segment id and its start time.
-- If the segments do not contain the answer, say "This is not covered in the
-  video" and name the nearest moment. Do not guess.
-- Keep the answer under the requested word budget.
+- Cite every factual sentence with the segment number, for example `[2]`.
+- If the segments do not contain the answer, reply exactly `NOT_COVERED`.
+- Do not use outside knowledge.
 
 The server enforces the contract by validating citations after generation. A
-response with no valid citation is downgraded to the abstention message rather
-than shown as fact.
+response with no valid citation, or the `NOT_COVERED` marker, becomes the
+abstention message with the nearest moment rather than a fact.
 
 ### 12.2 Abstention threshold
 
@@ -335,11 +348,11 @@ reelreader init [--directory DIR] [--force]
 reelreader doctor
 reelreader config [--json]
 reelreader models
-reelreader add SOURCE [--title T] [--tier text|visual|full]
-reelreader index [--view all|text|frame|video|audio|fused] [--rebuild]
+reelreader add SOURCE [--title T] [--copy] [--json]
+reelreader index [--video ID] [--model M] [--rebuild] [--no-embed]
 reelreader list [--json]
-reelreader search QUERY [--view VIEW] [--limit N]
-reelreader ask QUESTION [--video ID] [--tier TIER] [--json] [--stream]
+reelreader search QUERY [--view text] [--mode hybrid|dense|bm25] [--limit N] [--json]
+reelreader ask QUESTION [--video ID] [--limit N] [--json]
 reelreader export ID --format md|srt|vtt|anki [--out PATH]
 reelreader serve [--port 0] [--host 127.0.0.1]
 reelreader eval [--dataset PATH] [--view VIEW]

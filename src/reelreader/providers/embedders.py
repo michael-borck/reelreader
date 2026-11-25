@@ -81,6 +81,11 @@ class LocalEmbedder:
     name = "local"
 
     def __init__(self, *, model: str, dim: int) -> None:
+        self.model = model
+        self.dim = dim
+        self._model = None
+
+    def _load(self):
         import importlib
 
         try:
@@ -89,14 +94,14 @@ class LocalEmbedder:
             raise ProviderError(
                 "local embeddings need the optional dependency: pip install 'reelreader[local]'"
             ) from exc
-        self.model = model
-        self.dim = dim
-        self._model = module.TextEmbedding(model_name=model)
+        return module.TextEmbedding(model_name=self.model)
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
             return []
-        return [[float(value) for value in vector] for vector in self._model.embed(texts)]
+        model = self._model or self._load()
+        self._model = model
+        return [[float(value) for value in vector] for vector in model.embed(texts)]
 
 
 def build_embedder(settings: Settings) -> Embedder:

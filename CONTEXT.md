@@ -39,6 +39,8 @@ Read this before the code; read `docs/SPEC.md` before changing behaviour.
    the app.
 9. The desktop shell never implements retrieval; it calls the engine.
 10. No telemetry. Outbound calls go only to the configured provider hosts.
+11. The model cites segment numbers; only the server maps them to ids and
+    timestamps. An answer with no valid citation becomes an abstention.
 
 ## Module map
 
@@ -53,6 +55,9 @@ Read this before the code; read `docs/SPEC.md` before changing behaviour.
 | `src/reelreader/transcribe.py` | words, sentences, faster-whisper adapter |
 | `src/reelreader/segment.py` | boundaries, clips, wavs, keyframes |
 | `src/reelreader/pipeline.py` | resumable transcode → transcribe → segment |
+| `src/reelreader/embed.py` | text embeddings, index matrices, manifest |
+| `src/reelreader/search.py` | dense, BM25, and RRF hybrid retrieval |
+| `src/reelreader/rag.py` | grounded prompt, citation mapping, abstention |
 | `src/reelreader/providers/base.py` | shared provider types and errors |
 | `src/reelreader/providers/openai_compat.py` | OpenAI-compatible chat |
 | `src/reelreader/providers/anthropic.py` | Anthropic messages |
@@ -61,8 +66,8 @@ Read this before the code; read `docs/SPEC.md` before changing behaviour.
 | `docs/UX.md` | the loop and states |
 | `docs/STORIES.md` | backlog and definition of done |
 
-Planned modules, named here so they are not invented twice: `embed.py`,
-`index.py`, `rag.py`, `serve.py`.
+Planned modules, named here so they are not invented twice: `serve.py`, and the
+multimodal view embedders in M3–M4.
 
 ## Conventions
 

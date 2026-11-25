@@ -50,6 +50,9 @@ Read this before the code; read `docs/SPEC.md` before changing behaviour.
 | `src/reelreader/library.py` | SQLite schema, videos, jobs, migrations |
 | `src/reelreader/media.py` | ffprobe inspection |
 | `src/reelreader/ingest.py` | hash, dedupe, folder and URL ingest |
+| `src/reelreader/transcribe.py` | words, sentences, faster-whisper adapter |
+| `src/reelreader/segment.py` | boundaries, clips, wavs, keyframes |
+| `src/reelreader/pipeline.py` | resumable transcode → transcribe → segment |
 | `src/reelreader/providers/base.py` | shared provider types and errors |
 | `src/reelreader/providers/openai_compat.py` | OpenAI-compatible chat |
 | `src/reelreader/providers/anthropic.py` | Anthropic messages |
@@ -58,8 +61,8 @@ Read this before the code; read `docs/SPEC.md` before changing behaviour.
 | `docs/UX.md` | the loop and states |
 | `docs/STORIES.md` | backlog and definition of done |
 
-Planned modules, named here so they are not invented twice: `transcribe.py`,
-`segment.py`, `embed.py`, `index.py`, `rag.py`, `serve.py`.
+Planned modules, named here so they are not invented twice: `embed.py`,
+`index.py`, `rag.py`, `serve.py`.
 
 ## Conventions
 
@@ -71,3 +74,8 @@ Planned modules, named here so they are not invented twice: `transcribe.py`,
 - Errors carry the thing and the fix: which provider, which status, which env
   var.
 - No comments that restate the code; docstrings explain why a module exists.
+- Pin `av<19`: faster-whisper 1.2.x passes `metadata_errors` to `av.open`, which
+  PyAV 19 removed. A newer faster-whisper may lift the pin; verify before moving
+  it.
+- Artifact clips are video-only and encoded `ultrafast`; per-moment audio lives
+  in the sibling `.wav`, so a clip does not pay for an audio encode.

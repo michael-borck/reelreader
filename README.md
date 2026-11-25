@@ -62,7 +62,16 @@ reelreader models                   # models your provider offers
 reelreader add lecture.mp4          # reference a file; --copy to bring it in
 reelreader add ./week3 --copy       # a folder, copied into the library
 reelreader list                     # videos, length, status, current job
+
+reelreader index --model small      # transcode, transcribe, segment everything
+reelreader index --video ID         # one video
+reelreader index --rebuild          # ignore existing outputs
 ```
+
+`index` resumes: a killed run picks up at the first missing artifact. Transcripts
+land in `transcript.json`, moments in `segments.json` plus `segments/` clips,
+wavs, and keyframes. Whisper models: `tiny`, `base`, `small`, `medium`,
+`large-v3` (`small` by default).
 
 Point at a local model with no key:
 

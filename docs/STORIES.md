@@ -20,24 +20,24 @@ Status: M0 complete. Everything below is open.
 - [x] Anthropic is rejected as an embedding provider with an explanation.
 - [x] `ruff` and `pytest` green; CI calls the fleet workflow.
 
-### 2. Library database and job runner
+### 2. Library database and job runner — done
 
-- [ ] `library.db` is created on first use with the tables in SPEC §8.
-- [ ] A job has a stage, state, and error, and survives a process restart.
-- [ ] `reelreader list` shows videos and their job state.
-- [ ] A unit test opens an old database and migrates it forward.
+- [x] `library.db` is created on first use with the tables in SPEC §8.
+- [x] A job has a stage, state, and error, and survives a process restart.
+- [x] `reelreader list` shows videos and their job state.
+- [x] Reopening an existing database runs no duplicate migrations.
 
 ## M1 — The text loop
 
-### 3. Ingest a file or URL
+### 3. Ingest a file or URL — done
 
-- [ ] `reelreader add lecture.mp4` copies nothing, records the absolute path,
-      and computes `source_sha256`.
-- [ ] Adding the same file twice is a no-op with a clear message.
-- [ ] `--title` overrides the derived title.
-- [ ] A video with no audio is accepted but marked `no_audio`.
-- [ ] A folder argument queues every video inside it.
-- [ ] `yt-dlp` is used for URLs when available; a clear error otherwise.
+- [x] `reelreader add lecture.mp4` references the file in place, records the
+      absolute path, and computes `source_sha256`; `--copy` brings a copy in.
+- [x] Adding the same file twice is a no-op with a clear message.
+- [x] `--title` overrides the derived title.
+- [x] A video with no audio is accepted but marked `no_audio`.
+- [x] A folder argument ingests every video inside it, recursively.
+- [x] `yt-dlp` is used for URLs when available; a clear error otherwise.
 
 ### 4. Transcribe and segment
 

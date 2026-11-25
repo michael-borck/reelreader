@@ -46,6 +46,10 @@ Read this before the code; read `docs/SPEC.md` before changing behaviour.
 |---|---|
 | `src/reelreader/config.py` | settings, precedence, validation |
 | `src/reelreader/cli.py` | command surface |
+| `src/reelreader/ids.py` | sortable ULID identifiers |
+| `src/reelreader/library.py` | SQLite schema, videos, jobs, migrations |
+| `src/reelreader/media.py` | ffprobe inspection |
+| `src/reelreader/ingest.py` | hash, dedupe, folder and URL ingest |
 | `src/reelreader/providers/base.py` | shared provider types and errors |
 | `src/reelreader/providers/openai_compat.py` | OpenAI-compatible chat |
 | `src/reelreader/providers/anthropic.py` | Anthropic messages |
@@ -54,8 +58,8 @@ Read this before the code; read `docs/SPEC.md` before changing behaviour.
 | `docs/UX.md` | the loop and states |
 | `docs/STORIES.md` | backlog and definition of done |
 
-Planned modules, named here so they are not invented twice: `ingest.py`,
-`transcribe.py`, `segment.py`, `embed.py`, `index.py`, `rag.py`, `serve.py`.
+Planned modules, named here so they are not invented twice: `transcribe.py`,
+`segment.py`, `embed.py`, `index.py`, `rag.py`, `serve.py`.
 
 ## Conventions
 

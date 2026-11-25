@@ -19,6 +19,8 @@ from rich.table import Table
 
 from reelreader import __version__
 from reelreader.config import CONFIG_NAME, ConfigError, Settings
+from reelreader.ingest import IngestError, IngestResult, ingest_path, ingest_url, is_url
+from reelreader.library import Job, Library, LibraryError
 from reelreader.providers import ProviderError, build_chat_provider
 
 app = typer.Typer(
@@ -189,9 +191,35 @@ def models() -> None:
 @app.command()
 def add(
     source: Annotated[str, typer.Argument(help="File, folder, or URL to ingest.")],
+    title: Annotated[
+        str | None,
+        typer.Option("--title", "-t", help="Override the title."),
+    ] = None,
+    copy: Annotated[
+        bool,
+        typer.Option("--copy", help="Copy the file into the library folder."),
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
-    """Add a video to the library and queue the pipeline."""
-    _planned(3, f"ingest {source!r}")
+    """Add a video, a folder of videos, or a URL. Duplicates are ignored."""
+    try:
+        settings = Settings.load()
+        library = Library.open(settings.library)
+        if is_url(source):
+            results = [ingest_url(library, source, title=title)]
+        else:
+            results = ingest_path(library, source, title=title, copy=copy)
+    except (ConfigError, IngestError, LibraryError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(code=1) from exc
+
+    if as_json:
+        console.print_json(json.dumps([_result_dict(result) for result in results]))
+        return
+    for result in results:
+        _report_result(result)
+    if any(result.video.status == "no_audio" for result in results if result.created):
+        console.print("[yellow]No audio track.[/] This video can only be indexed for visuals.")
 
 
 @app.command("index")
@@ -206,9 +234,60 @@ def index_command(
 
 
 @app.command("list")
-def list_command() -> None:
+def list_command(
+    as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
+) -> None:
     """List videos in the library."""
-    _planned(5, "list the library")
+    try:
+        settings = Settings.load()
+        library = Library.open(settings.library)
+    except (ConfigError, LibraryError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(code=1) from exc
+
+    videos = library.list_videos()
+    if as_json:
+        payload = []
+        for video in videos:
+            job = library.latest_job(video.id)
+            payload.append(
+                {
+                    "id": video.id,
+                    "title": video.title,
+                    "path": str(video.path),
+                    "duration": video.duration,
+                    "status": "missing" if not video.exists else video.status,
+                    "has_audio": video.has_audio,
+                    "added_at": video.added_at,
+                    "job": None if job is None else _job_dict(job),
+                }
+            )
+        console.print_json(json.dumps(payload))
+        return
+
+    if not videos:
+        console.print("No videos yet. Add one with: [bold]reelreader add FILE[/]")
+        return
+
+    table = Table(show_lines=False)
+    table.add_column("Title", style="bold")
+    table.add_column("Length", justify="right")
+    table.add_column("Status")
+    table.add_column("Job")
+    table.add_column("Id", style="dim")
+    for video in videos:
+        state = "missing" if not video.exists else video.status
+        job = library.latest_job(video.id)
+        job_label = "" if job is None else f"{job.stage} {job.state} {job.progress:.0%}"
+        table.add_row(
+            video.title,
+            video.duration_label,
+            _status_cell(state),
+            job_label,
+            video.id,
+        )
+    console.print(table)
+    console.print(f"[dim]{len(videos)} video(s) in {library.root}[/]")
 
 
 @app.command()
@@ -260,6 +339,51 @@ def eval_command(
 ) -> None:
     """Measure recall@k for the configured tier and views."""
     _planned(12, f"eval {dataset}")
+
+
+def _result_dict(result: IngestResult) -> dict[str, object]:
+    return {
+        "id": result.video.id,
+        "title": result.video.title,
+        "path": str(result.video.path),
+        "duration": result.video.duration,
+        "status": result.video.status,
+        "has_audio": result.video.has_audio,
+        "created": result.created,
+        "skipped": result.skipped,
+    }
+
+
+def _job_dict(job: Job) -> dict[str, object]:
+    return {
+        "id": job.id,
+        "stage": job.stage,
+        "state": job.state,
+        "progress": job.progress,
+        "message": job.message,
+        "error": job.error,
+    }
+
+
+def _report_result(result: IngestResult) -> None:
+    video = result.video
+    if result.created:
+        console.print(f"[green]Added[/] {video.title} ({video.duration_label}, {video.id})")
+    else:
+        reason = result.skipped or "already in library"
+        console.print(f"[yellow]Skipped[/] {video.title}: {reason}")
+
+
+def _status_cell(status: str) -> str:
+    if status == "ready":
+        return f"[green]{status}[/]"
+    if status == "missing":
+        return f"[yellow]{status}[/]"
+    if status == "failed":
+        return f"[red]{status}[/]"
+    if status == "no_audio":
+        return f"[magenta]{status}[/]"
+    return status
 
 
 def _planned(story: int, action: str) -> NoReturn:

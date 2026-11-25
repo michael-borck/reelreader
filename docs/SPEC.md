@@ -162,7 +162,7 @@ the transcript and artifacts.
 ~/Reelreader/                      library root (configurable)
 ├── library.db                     SQLite: videos, segments, jobs, chats
 ├── videos/<video_id>/
-│   ├── source.mp4                 the original, untouched
+│   ├── source.mp4                 only with --copy or a URL download
 │   ├── proxy.mp4
 │   ├── audio.wav
 │   ├── transcript.json
@@ -173,6 +173,11 @@ the transcript and artifacts.
     ├── manifest.json
     └── <video_id>/<view>.npy
 ```
+
+The default is to reference the original in place and record its absolute path:
+lecture files are large and often already live in a course folder. `--copy`
+brings a copy into `videos/<id>/source.*` so the library is self-contained; a URL
+download always lands in the library. Either way, deduplication is by SHA-256.
 
 `library.db` tables:
 

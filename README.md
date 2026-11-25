@@ -58,6 +58,10 @@ reelreader init                     # write reelreader.toml, create ~/Reelreader
 reelreader doctor                   # what is installed, which model, which tier
 reelreader config                   # resolved settings, key redacted
 reelreader models                   # models your provider offers
+
+reelreader add lecture.mp4          # reference a file; --copy to bring it in
+reelreader add ./week3 --copy       # a folder, copied into the library
+reelreader list                     # videos, length, status, current job
 ```
 
 Point at a local model with no key:

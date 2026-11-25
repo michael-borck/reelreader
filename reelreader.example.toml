@@ -1,0 +1,17 @@
+# Copy to reelreader.toml and edit. Keys are never stored here.
+library = "~/Reelreader"
+tier = "text"  # text | visual | full
+
+[chat]
+# "openai" covers any OpenAI-compatible endpoint, including Ollama:
+#   base_url = "http://localhost:11434/v1"  model = "llama3.2"
+provider = "openai"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4.1-mini"
+api_key_env = "OPENAI_API_KEY"
+
+[embed]
+# Anthropic is not an option: it has no embeddings API.
+provider = "local"
+model = "BAAI/bge-small-en-v1.5"
+dim = 384

@@ -1,0 +1,13 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    uses: michael-borck/app-hq/.github/workflows/ci-python.yml@main
+    with:
+      python-versions: '["3.11", "3.12", "3.13"]'

@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.pyright/
+
+# Node / Tauri
+node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+
+# Local data, models, media. Never commit a user's library.
+library/
+data/
+models/
+*.db
+*.sqlite
+*.sqlite3
+*.mp4
+*.mkv
+*.mov
+*.wav
+*.mp3
+*.m4a
+
+# Secrets and local config
+.env
+.env.*
+*.key
+*.pem
+reelreader.local.toml
+reelreader.toml
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+
+# macOS resource forks on non-native filesystems
+._*
+.AppleDouble

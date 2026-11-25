@@ -107,6 +107,6 @@ def test_list_is_empty_by_default():
 
 
 def test_planned_command_is_honest():
-    result = invoke("ask", "what is a p-value?")
+    result = invoke("serve")
     assert result.exit_code == 2
     assert "Not in v0.0.1" in result.stdout

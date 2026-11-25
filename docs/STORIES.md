@@ -50,32 +50,34 @@ Status: M0 complete. Everything below is open.
 - [x] An 8:20 sample indexes in 2:17 on an M-series CPU with `tiny`.
 - [x] Ctrl-C cancels the job, marks the video `interrupted`, and a rerun resumes.
 
-### 5. Text index
+### 5. Text index — done, eval deferred
 
-- [ ] Each segment is embedded with the configured embedder.
-- [ ] `manifest.json` records model, revision, dim, normalisation, and count.
-- [ ] A dimension mismatch between config and manifest refuses with a rebuild
-      command.
-- [ ] Cosine search returns the expected segment for 10 hand-written questions.
+- [x] Each segment is embedded with the configured embedder.
+- [x] `manifest.json` records model, dim, normalisation, row-order ids, and count.
+- [x] A model or dimension mismatch refuses with a rebuild command.
+- [ ] Ten hand-written questions with expected moments. Deferred to the eval
+      harness (story 12); one real query is verified end to end.
 
-### 6. Search without a model
+### 6. Search without a model — done, eval deferred
 
-- [ ] `reelreader search "p-value"` prints time, score, and text.
-- [ ] `--view` selects text, frame, video, audio, or fused.
-- [ ] Hybrid ranking (BM25 + dense, RRF k=60) beats dense alone on the eval set.
-- [ ] `--json` emits one object per hit.
+- [x] `reelreader search "p-value"` prints time, score, and text.
+- [x] `--mode` selects hybrid, dense, or BM25.
+- [ ] `--view` selects text, frame, video, audio, or fused. Text now; the other
+      views arrive in M3.
+- [ ] Hybrid beats dense alone on the eval set. Deferred to story 12.
+- [x] `--json` emits one object per hit.
 
-### 7. Ask with seekable citations
+### 7. Ask with seekable citations — done
 
-- [ ] `reelreader ask "what is a p-value?"` returns an answer with `[mm:ss]`
-      citations.
-- [ ] Every citation maps to a retrieved segment; invalid ones are repaired or
-      cause abstention.
-- [ ] With no relevant segment, the reply is the abstention message and the
+- [x] `reelreader ask "what is a p-value?"` returns an answer with `[mm:ss]`
+      sources.
+- [x] Every citation maps to a retrieved segment; invalid ones cause abstention.
+- [x] With no relevant segment, the reply is the abstention message and the
       nearest moment.
-- [ ] `--json` returns `{answer, citations, segments, trace}`.
-- [ ] A test stubs the provider and asserts the prompt contains only retrieved
-      text.
+- [x] `--json` returns `{answer, abstained, citations, segments, model}`.
+- [x] Tests stub the provider and assert the prompt contains only retrieved text.
+- [x] Verified against Ollama `gemma4` on a real spoken clip, including a
+      correct abstention for an unrelated question.
 
 ## M2 — Desktop
 

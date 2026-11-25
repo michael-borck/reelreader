@@ -42,14 +42,14 @@ question ─▶ retrieve (text | frame | video | audio | fused) ─┤
 ## Install
 
 ```bash
-uv tool install reelreader          # or: pipx install reelreader
+uv tool install 'reelreader[local,asr]'   # offline embeddings + speech
+# or: pipx install 'reelreader[local,asr]'
 ```
 
-Optional pieces are extras:
-
-```bash
-uv tool install 'reelreader[all]'   # local embeddings, ASR, scenes, serve, index
-```
+`local` is what makes `index` and `search` work without a key. Without it,
+point `[embed]` at an OpenAI-compatible `/embeddings` endpoint instead. Other
+extras: `scene` (slide cuts), `serve` (desktop API), `index` (sqlite-vec),
+`all`.
 
 ## Quickstart
 
@@ -66,12 +66,20 @@ reelreader list                     # videos, length, status, current job
 reelreader index --model small      # transcode, transcribe, segment everything
 reelreader index --video ID         # one video
 reelreader index --rebuild          # ignore existing outputs
+
+reelreader search "p value" --limit 5
+reelreader ask "What is a p value?"
 ```
 
 `index` resumes: a killed run picks up at the first missing artifact. Transcripts
 land in `transcript.json`, moments in `segments.json` plus `segments/` clips,
-wavs, and keyframes. Whisper models: `tiny`, `base`, `small`, `medium`,
-`large-v3` (`small` by default).
+wavs, and keyframes. Embeddings land in `index/<video>/text.npy` with a
+manifest that records the model and row order. Whisper models: `tiny`, `base`,
+`small`, `medium`, `large-v3` (`small` by default).
+
+`ask` answers only from retrieved moments and prints the sources it used. If the
+lecture does not cover the question, it says so and points at the nearest
+moment. Add `--json` for scripting.
 
 Point at a local model with no key:
 

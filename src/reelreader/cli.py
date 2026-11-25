@@ -19,10 +19,14 @@ from rich.table import Table
 
 from reelreader import __version__
 from reelreader.config import CONFIG_NAME, ConfigError, Settings
+from reelreader.embed import EmbeddingError, ensure_embeddings
 from reelreader.ingest import IngestError, IngestResult, ingest_path, ingest_url, is_url
 from reelreader.library import Job, Library, LibraryError
 from reelreader.pipeline import PipelineError, index_video
-from reelreader.providers import ProviderError, build_chat_provider
+from reelreader.providers import ProviderError, build_chat_provider, build_embedder
+from reelreader.rag import RagError
+from reelreader.rag import ask as ask_video
+from reelreader.search import SearchError, search_library
 
 app = typer.Typer(
     add_completion=False,
@@ -245,8 +249,12 @@ def index_command(
         bool,
         typer.Option("--rebuild", help="Ignore existing outputs and start over."),
     ] = False,
+    no_embed: Annotated[
+        bool,
+        typer.Option("--no-embed", help="Stop after segmenting; skip embeddings."),
+    ] = False,
 ) -> None:
-    """Transcode, transcribe, and segment videos into seekable moments."""
+    """Transcode, transcribe, segment, and embed videos into seekable moments."""
     try:
         settings = Settings.load()
         library = Library.open(settings.library)
@@ -278,6 +286,28 @@ def index_command(
             console.print(f"[green]{item.title}[/] {result.segment_count} segments ({changed})")
     if failures:
         raise typer.Exit(code=1)
+    if no_embed:
+        return
+
+    ready = [library.get_video(item.id) for item in videos]
+    ready = [item for item in ready if item.status == "ready"]
+    if not ready:
+        return
+    try:
+        embedder = build_embedder(settings)
+        summary = ensure_embeddings(
+            library,
+            ready,
+            embedder,
+            force=rebuild,
+            log=lambda message: console.print(f"[dim]{message}[/]"),
+        )
+    except (EmbeddingError, ProviderError) as exc:
+        console.print(f"[red]embedding failed:[/] {exc}")
+        raise typer.Exit(code=1) from exc
+    console.print(
+        f"[dim]embeddings: {len(summary.embedded)} updated, {len(summary.skipped)} up to date[/]"
+    )
 
 
 @app.command("list")
@@ -340,20 +370,91 @@ def list_command(
 @app.command()
 def search(
     query: Annotated[str, typer.Argument(help="What to look for.")],
-    view: Annotated[str, typer.Option(help="Retrieval view.")] = "all",
+    view: Annotated[str, typer.Option(help="Retrieval view (text until M3).")] = "text",
+    limit: Annotated[int, typer.Option("--limit", "-n", help="How many moments.")] = 8,
+    mode: Annotated[str, typer.Option(help="hybrid, dense, or bm25.")] = "hybrid",
+    video: Annotated[
+        str | None,
+        typer.Option("--video", "-v", help="Restrict to one video id."),
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
-    """Find moments, without calling a chat model."""
-    _planned(6, f"search {query!r} view={view}")
+    """Find moments without calling a chat model."""
+    if view != "text":
+        console.print("[yellow]Only the text view is indexed until M3.[/]")
+        raise typer.Exit(code=2)
+    try:
+        settings = Settings.load()
+        library = Library.open(settings.library)
+        embedder = build_embedder(settings)
+        hits = search_library(
+            library,
+            query,
+            embedder=embedder,
+            limit=limit,
+            mode=mode,
+            video_id=video,
+        )
+    except (ConfigError, LibraryError, ProviderError, EmbeddingError, SearchError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(code=1) from exc
+
+    if as_json:
+        console.print_json(json.dumps([hit.to_dict() for hit in hits]))
+        return
+    if not hits:
+        console.print("No moments matched.")
+        return
+    table = Table(show_lines=False)
+    table.add_column("Time", justify="right")
+    table.add_column("Score", justify="right")
+    table.add_column("Video")
+    table.add_column("Moment")
+    for hit in hits:
+        table.add_row(hit.label, f"{hit.score:.3f}", hit.video_title, _snippet(hit.text, 90))
+    console.print(table)
 
 
 @app.command()
 def ask(
     question: Annotated[str, typer.Argument(help="Question about the video.")],
-    video: Annotated[str | None, typer.Option(help="Restrict to one video id.")] = None,
+    video: Annotated[
+        str | None,
+        typer.Option("--video", "-v", help="Restrict to one video id."),
+    ] = None,
+    limit: Annotated[int, typer.Option("--limit", "-n", help="Moments to consider.")] = 8,
     as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
 ) -> None:
     """Ask a question and get a grounded answer with timestamps."""
-    _planned(7, f"ask {question!r} video={video} json={as_json}")
+    try:
+        settings = Settings.load()
+        library = Library.open(settings.library)
+        answer = ask_video(library, settings, question, limit=limit, video_id=video)
+    except (
+        ConfigError,
+        LibraryError,
+        ProviderError,
+        EmbeddingError,
+        RagError,
+        SearchError,
+    ) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(code=1) from exc
+
+    if as_json:
+        console.print_json(json.dumps(answer.to_dict()))
+        return
+    console.print(answer.text, style="yellow" if answer.abstained else "")
+    if not answer.citations:
+        return
+    console.print()
+    table = Table(title="Sources", show_lines=False)
+    table.add_column("Time", justify="right")
+    table.add_column("Video")
+    table.add_column("Moment")
+    for citation in answer.citations:
+        table.add_row(citation.label, citation.video_title, citation.snippet)
+    console.print(table)
 
 
 @app.command()
@@ -386,6 +487,11 @@ def eval_command(
 ) -> None:
     """Measure recall@k for the configured tier and views."""
     _planned(12, f"eval {dataset}")
+
+
+def _snippet(text: str, width: int) -> str:
+    flat = " ".join(text.split())
+    return flat if len(flat) <= width else flat[: width - 1] + "…"
 
 
 def _result_dict(result: IngestResult) -> dict[str, object]:

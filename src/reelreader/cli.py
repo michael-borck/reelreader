@@ -21,6 +21,7 @@ from reelreader import __version__
 from reelreader.config import CONFIG_NAME, ConfigError, Settings
 from reelreader.ingest import IngestError, IngestResult, ingest_path, ingest_url, is_url
 from reelreader.library import Job, Library, LibraryError
+from reelreader.pipeline import PipelineError, index_video
 from reelreader.providers import ProviderError, build_chat_provider
 
 app = typer.Typer(
@@ -224,13 +225,59 @@ def add(
 
 @app.command("index")
 def index_command(
-    view: Annotated[
+    video: Annotated[
+        str | None,
+        typer.Option("--video", "-v", help="Index one video id (default: all)."),
+    ] = None,
+    model: Annotated[
         str,
-        typer.Option(help="Embedding view: text, frame, video, audio, fused, or all."),
-    ] = "all",
+        typer.Option("--model", help="Whisper model: tiny, base, small, medium, large-v3."),
+    ] = "small",
+    device: Annotated[
+        str,
+        typer.Option(help="auto, cpu, or cuda."),
+    ] = "auto",
+    compute_type: Annotated[
+        str,
+        typer.Option(help="int8, int8_float16, float16, or float32."),
+    ] = "int8",
+    rebuild: Annotated[
+        bool,
+        typer.Option("--rebuild", help="Ignore existing outputs and start over."),
+    ] = False,
 ) -> None:
-    """Transcribe, segment, and embed the library."""
-    _planned(4, f"index view={view}")
+    """Transcode, transcribe, and segment videos into seekable moments."""
+    try:
+        settings = Settings.load()
+        library = Library.open(settings.library)
+        videos = [library.get_video(video)] if video else library.list_videos()
+    except (ConfigError, LibraryError) as exc:
+        console.print(f"[red]{exc}[/]")
+        raise typer.Exit(code=1) from exc
+    if not videos:
+        console.print("No videos yet. Add one with: [bold]reelreader add FILE[/]")
+        return
+
+    failures = 0
+    for item in videos:
+        try:
+            result = index_video(
+                library,
+                item,
+                model=model,
+                device=device,
+                compute_type=compute_type,
+                force=rebuild,
+                log=lambda message: console.print(f"[dim]{message}[/]"),
+            )
+        except PipelineError as exc:
+            console.print(f"[red]{item.title}:[/] {exc}")
+            failures += 1
+        else:
+            changed = ", ".join(result.ran) or "up to date"
+            console.print(f"[green]{item.title}[/] {result.segment_count} segments ({changed})")
+    if failures:
+        raise typer.Exit(code=1)
 
 
 @app.command("list")
@@ -383,6 +430,8 @@ def _status_cell(status: str) -> str:
         return f"[red]{status}[/]"
     if status == "no_audio":
         return f"[magenta]{status}[/]"
+    if status == "interrupted":
+        return f"[yellow]{status}[/]"
     return status
 
 

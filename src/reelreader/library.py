@@ -18,7 +18,7 @@ from reelreader.ids import new_id
 
 SCHEMA_VERSION = 1
 
-STATUSES = ("ingested", "indexing", "ready", "failed", "no_audio", "missing")
+STATUSES = ("ingested", "indexing", "ready", "failed", "no_audio", "missing", "interrupted")
 JOB_STATES = ("queued", "running", "done", "failed", "cancelled")
 
 
@@ -56,6 +56,15 @@ class Video:
         if hours:
             return f"{hours}:{minutes:02d}:{seconds:02d}"
         return f"{minutes}:{seconds:02d}"
+
+
+@dataclass(frozen=True, slots=True)
+class SegmentRecord:
+    id: str
+    start: float
+    end: float
+    text: str
+    keyframe_at: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -235,6 +244,40 @@ class Library:
     def delete_video(self, video_id: str) -> None:
         with self._connect() as conn:
             conn.execute("DELETE FROM videos WHERE id = ?", (video_id,))
+
+    def replace_segments(self, video_id: str, segments: list[SegmentRecord]) -> None:
+        rows = [
+            (segment.id, video_id, segment.start, segment.end, segment.text, segment.keyframe_at)
+            for segment in segments
+        ]
+        try:
+            with self._connect() as conn:
+                conn.execute("DELETE FROM segments WHERE video_id = ?", (video_id,))
+                conn.executemany(
+                    """
+                    INSERT INTO segments (id, video_id, start, end, text, keyframe_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    rows,
+                )
+        except sqlite3.Error as exc:
+            raise LibraryError(f"cannot save segments: {exc}") from exc
+
+    def list_segments(self, video_id: str) -> list[SegmentRecord]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM segments WHERE video_id = ? ORDER BY start", (video_id,)
+            ).fetchall()
+        return [
+            SegmentRecord(
+                id=row["id"],
+                start=row["start"],
+                end=row["end"],
+                text=row["text"],
+                keyframe_at=row["keyframe_at"],
+            )
+            for row in rows
+        ]
 
     def start_job(self, video_id: str, stage: str) -> Job:
         job_id = new_id()

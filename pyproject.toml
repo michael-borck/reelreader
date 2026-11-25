@@ -48,7 +48,7 @@ dependencies = [
 # Text embeddings with no API key. Multimodal tiers need torch-backed models.
 local = ["fastembed>=0.4.0"]
 # Speech to text with word-level timestamps.
-asr = ["faster-whisper>=1.0.0"]
+asr = ["faster-whisper>=1.2.0", "av>=11,<19"]
 # Scene and slide detection for keyframes and chapter boundaries.
 scene = ["scenedetect>=0.6.4", "pillow>=10.0.0"]
 # Local HTTP API used by the desktop shell.
@@ -59,7 +59,8 @@ index = ["sqlite-vec>=0.1.6"]
 keyring = ["keyring>=25.0.0"]
 all = [
     "fastembed>=0.4.0",
-    "faster-whisper>=1.0.0",
+    "faster-whisper>=1.2.0",
+    "av>=11,<19",
     "scenedetect>=0.6.4",
     "pillow>=10.0.0",
     "fastapi>=0.115.0",
